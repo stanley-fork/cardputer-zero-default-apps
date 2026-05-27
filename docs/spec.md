@@ -12,6 +12,8 @@ applications optimized for the Cardputer Zero internal screen.
 - Command execution wrapper with timeout, stdout, stderr, and exit code.
 - APPLaunch desktop entries and icons.
 - Thin backends over existing Linux commands, procfs, sysfs, and user files.
+- Writing user-session preferences consumed by the Cardputer Zero OS session,
+  such as `~/.config/cardputer-zero/session/display-power.json`.
 
 ## Out Of Scope
 
@@ -60,6 +62,9 @@ X-Zero-Display=wayland
 
 No app in this repository may own `/dev/fb*`, DRM devices, input devices, or
 global keyboard shortcuts.
+
+The Settings app may write the user's screen-timeout preference, but the OS
+session owns wiring that preference to compositor idle and output power tools.
 
 ## Failure Rule
 

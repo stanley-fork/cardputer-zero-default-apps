@@ -17,12 +17,21 @@ from czero_apps.system import command
 DEFAULT_PREFS = {
     "theme": "zero-paper",
     "screen_timeout": "2min",
-    "display_sleep": "2min",
     "update_policy": "manual",
     "preferred_audio_backend": "auto",
     "preferred_terminal": "foot",
     "hdmi_output": True,
 }
+
+SCREEN_TIMEOUT_LABELS = {
+    "30s": "30 sec",
+    "1min": "1 min",
+    "2min": "2 min",
+    "5min": "5 min",
+    "never": "Never",
+}
+
+SCREEN_TIMEOUT_OPTIONS = tuple(SCREEN_TIMEOUT_LABELS.keys())
 
 
 @dataclass(frozen=True)
@@ -38,6 +47,9 @@ class SettingsBackend:
     def config_path(self) -> Path:
         return Path.home() / ".config" / "cardputer-zero" / "default-apps" / "settings.json"
 
+    def display_power_path(self) -> Path:
+        return Path.home() / ".config" / "cardputer-zero" / "session" / "display-power.json"
+
     def load_preferences(self) -> dict:
         path = self.config_path()
         if not path.exists():
@@ -46,7 +58,11 @@ class SettingsBackend:
         try:
             loaded = json.loads(path.read_text(encoding="utf-8"))
             prefs = dict(DEFAULT_PREFS)
-            prefs.update(loaded if isinstance(loaded, dict) else {})
+            if isinstance(loaded, dict):
+                prefs.update(loaded)
+                if "screen_timeout" not in loaded and "display_sleep" in loaded:
+                    prefs["screen_timeout"] = loaded["display_sleep"]
+                prefs.pop("display_sleep", None)
             return prefs
         except Exception:
             backup = path.with_suffix(".json.bak")
@@ -60,11 +76,21 @@ class SettingsBackend:
     def save_preferences(self, data: dict | None = None) -> None:
         if data is not None:
             self.preferences = data
+        self.preferences.pop("display_sleep", None)
         path = self.config_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.preferences, indent=2, sort_keys=True), encoding="utf-8")
+        self.save_display_power()
+
+    def save_display_power(self) -> None:
+        path = self.display_power_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        value = self.preferences.get("screen_timeout", DEFAULT_PREFS["screen_timeout"])
+        path.write_text(json.dumps({"screen_timeout": value}, indent=2, sort_keys=True), encoding="utf-8")
 
     def set_preference(self, key: str, value) -> CommandFeedback:
+        if key == "display_sleep":
+            key = "screen_timeout"
         self.preferences[key] = value
         self.save_preferences()
         return CommandFeedback(True, "Saved")
@@ -309,7 +335,7 @@ class SettingsBackend:
         if category == "display":
             brightness, brightness_value, brightness_disabled = self.brightness()
             hdmi, hdmi_on, hdmi_disabled = self.hdmi_status()
-            timeout = {"30s": "30 sec", "1min": "1 min", "2min": "2 min", "5min": "5 min", "never": "Never"}.get(
+            timeout = SCREEN_TIMEOUT_LABELS.get(
                 self.preferences.get("screen_timeout", "2min"),
                 "2 min",
             )
@@ -341,7 +367,7 @@ class SettingsBackend:
                 SettingRow("test", "Test Sound", "Play", "action"),
             ))
         if category == "power":
-            sleep = {"2min": "2 min", "5min": "5 min", "never": "Never"}.get(self.preferences.get("display_sleep", "2min"), "2 min")
+            sleep = SCREEN_TIMEOUT_LABELS.get(self.preferences.get("screen_timeout", "2min"), "2 min")
             return SettingsPage("power", (
                 SettingRow("power", "Battery / Power", self.power_source(), "readonly"),
                 SettingRow("display_sleep", "Display Sleep", sleep, "value", True),
@@ -358,8 +384,8 @@ class SettingsBackend:
             "timezone": ("Asia/Shanghai", "Asia/Seoul", "UTC", "Europe/Berlin", "America/Los_Angeles"),
             "updates": ("manual", "on-startup"),
             "theme": ("zero-paper",),
-            "screen_timeout": ("30s", "1min", "2min", "5min", "never"),
-            "display_sleep": ("2min", "5min", "never"),
+            "screen_timeout": SCREEN_TIMEOUT_OPTIONS,
+            "display_sleep": SCREEN_TIMEOUT_OPTIONS,
         }
         return options.get(key, ())
 
@@ -375,7 +401,7 @@ class SettingsBackend:
         if key == "theme":
             return self.set_preference("theme", value)
         if key in {"screen_timeout", "display_sleep"}:
-            return self.set_preference(key, value)
+            return self.set_preference("screen_timeout", value)
         return CommandFeedback(False, "Unsupported setting")
 
     def set_hostname(self, hostname: str) -> CommandFeedback:

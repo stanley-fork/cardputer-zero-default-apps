@@ -138,12 +138,17 @@ User preferences owned by the default apps are stored under:
 ~/.config/cardputer-zero/default-apps/
 ```
 
-Shell preferences that need to be shared with Cardputer Zero Shell can be stored
+Session preferences that need to be consumed by Cardputer Zero OS are stored
 under:
 
 ```text
-~/.config/cardputer-zero/shell/
+~/.config/cardputer-zero/session/
 ```
+
+The screen timeout setting is written to
+`~/.config/cardputer-zero/session/display-power.json`; the OS session wires that
+preference to the standard Wayland tools that actually blank and wake the
+internal screen.
 
 The app does not implement login, session, polkit, or permission rules. If a
 setting requires authorization, the backend calls the standard command and the
