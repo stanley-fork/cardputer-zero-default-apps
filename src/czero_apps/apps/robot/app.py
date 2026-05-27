@@ -1406,7 +1406,7 @@ class RobotWindow(Gtk.ApplicationWindow):
                 self.state.events.append(event)
                 if event.kind == "status":
                     self.state.status = fit_text(event.text.upper(), 6)
-        if changed:
+        if changed or self.state.mode == "running":
             self.canvas.queue_draw()
         return True
 
